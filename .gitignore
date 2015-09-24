@@ -1,0 +1,7 @@
+/tools
+*.o
+*.a
+*.d
+*.log
+*~
+/sysroot
