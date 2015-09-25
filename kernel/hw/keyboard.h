@@ -1,0 +1,102 @@
+#ifndef KEYBOARD_H
+#define KEYBOARD_H
+
+#include <stdint.h>
+#include <stdbool.h>
+
+enum KBD_INFO_MODE {
+    KBD_INFO_MODE_ECHO = 0x1,
+    KBD_INFO_MODE_RAW = 0x2,
+    KBD_INFO_MODE_LINE = 0x4
+};
+enum KBD_HELD {
+    KBD_HELD_LSHIFT = 0x1,
+    KBD_HELD_RSHIFT = 0x2,
+    KBD_HELD_LCTRL = 0x4,
+    KBD_HELD_RCTRL = 0x8,
+    KBD_HELD_LALT = 0x10,
+    KBD_HELD_RALT = 0x20,
+    KBD_HELD_LSUPER = 0x40,
+    KBD_HELD_RSUPER = 0x80,
+    KBD_HELD_NUMLOCK = 0x100,
+    KBD_HELD_CAPSLOCK = 0x200,
+    KBD_HELD_SCROLLLOCK = 0x400,
+    KBD_HELD_INSERT = 0x800
+};
+typedef struct kbd_info {
+    uint32_t mode;
+    uint32_t held;
+} kbd_info;
+
+#define KBD_ENCODER_REG 0x60
+#define KBD_CONTROLLER_REG 0x64
+enum KBD_STATS {
+    KBD_STATS_OUT_BUF	=	0x1,
+    KBD_STATS_IN_BUF	=	0x2,
+    KBD_STATS_SYSTEM	=	0x4,
+    KBD_STATS_CMD_DATA	=	0x8,
+    KBD_STATS_LOCKED	=	0x10,
+    KBD_STATS_AUX_BUF	=	0x20,
+    KBD_STATS_TIMEOUT	=	0x40,
+    KBD_STATS_PARITY	=	0x80
+};
+enum KBD_ENC_CMDS {
+    KBD_ENC_CMD_SET_LED = 0xED,
+    KBD_ENC_CMD_ECHO = 0xEE,
+    KBD_ENC_CMD_SET_SCAN_CODE_SET = 0xF0,
+    KBD_ENC_CMD_GET_ID = 0xF2,
+    KBD_ENC_CMD_SET_AUTOREPEAT = 0xF3,
+    KBD_ENC_CMD_ENABLE = 0xF4,
+    KBD_ENC_CMD_RESET_AND_WAIT = 0xF5,
+    KBD_ENC_CMD_RESET_AND_SCAN = 0xF6,
+    KBD_ENC_CMD_SET_ALL_AUTOREPEAT = 0xF7,
+    KBD_ENC_CMD_SET_ALL_MAKE_BREAK = 0xF8,
+    KBD_ENC_CMD_SET_ALL_MAKE = 0xF9,
+    KBD_ENC_CMD_SET_ALL_AUTOREPEAT_MAKE_BREAK = 0xFA,
+    KBD_ENC_CMD_SET_ONE_AUTOREPEAT = 0xFB,
+    KBD_ENC_CMD_SET_ONE_MAKE_BREAK = 0xFC,
+    KBD_ENC_CMD_SET_ONE_BREAK = 0xFD,
+    KBD_ENC_CMD_RESEND = 0xFE,
+    KBD_ENC_CMD_RESET_AND_SELF_TEST = 0xFF
+};
+enum KBD_LEDS {
+    KBD_LED_SCROLL = 0x1,
+    KBD_LED_NUM = 0x2,
+    KBD_LED_CAPS = 0x4
+};
+enum KBD_CTL_CMDS {
+    KBD_CTL_CMD_READ_CMD = 0x20,
+    KBD_CTL_CMD_WRITE_CMD = 0x60,
+    KBD_CTL_CMD_SELF_TEST = 0xAA,
+    KBD_CTL_CMD_INTERFACE_TEST = 0xAB,
+    KBD_CTL_CMD_DISABLE_KEYBOARD = 0xAD,
+    KBD_CTL_CMD_ENABLE_KEYBOARD = 0xAE,
+    KBD_CTL_CMD_READ_IN = 0xC0,
+    KBD_CTL_CMD_READ_OUT = 0xD0,
+    KBD_CTL_CMD_WRITE_OUT = 0xD1,
+    KBD_CTL_CMD_READ_TEST = 0xE0,
+    KBD_CTL_CMD_SYSTEM_RESET = 0xFE,
+    KBD_CTL_CMD_DISABLE_MOUSE = 0xA7,
+    KBD_CTL_CMD_ENABLE_MOUSE = 0xA8,
+    KBD_CTL_CMD_TEST_MOUSE = 0xA9,
+    KBD_CTL_CMD_WRITE_MOUSE = 0xD4
+};
+enum KBD_CMD {
+    KBD_CMD_KEYBOARD_INTERRUPT = 0x1,
+    KBD_CMD_MOUSE_INTERRUPT = 0x2,
+    KBD_CMD_SYSTEM_FLAG = 0x4,
+    KBD_CMD_ENABLE_KEYBOARD = 0x10,
+    KBD_CMD_ENABLE_MOUSE = 0x20,
+    KBD_CMD_TRANSLATION = 0x40
+};
+
+void init_keyboard();
+bool load_keys(char *scancode);
+void keyboard_irq_handler();
+char getchar();
+char *kgets(char *buf);
+void klights();
+void kbd_set_mode(uint32_t mode);
+char scancode_to_ascii(int scancode);
+#endif
+

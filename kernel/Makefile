@@ -1,6 +1,6 @@
 HOST?=i686-elf
 TOOLSDIR?=../tools/cross/bin
-CFLAGS?=-O2 -g
+CFLAGS?=-g
 CPPFLAGS?=
 LDFLAGS?=
 LIBS?=
@@ -16,14 +16,23 @@ BOOTDIR?=$(EXEC_PREFIX)/boot
 INCLUDEDIR?=$(PREFIX)/include
 LIBDIR?=$(EXEC_PREFIX)/lib
 
-CFLAGS:=$(CFLAGS) -ffreestanding -fbuiltin -Wall -Wextra
-CPPFLAGS:=$(CPPFLAGS) -D__is_petrichor_kernel -Iinclude -isystem $(DESTDIR)$(INCLUDEDIR)
+CFLAGS:=$(CFLAGS) -ffreestanding -Wall -Wextra
+CPPFLAGS:=$(CPPFLAGS) -D__is_petrichor_kernel -Iinclude -I. -isystem $(DESTDIR)$(INCLUDEDIR)
 LDFLAGS:=$(LDFLAGS) --sysroot $(DESTDIR)
-LIBS:=$(LIBS) -nostdlib -lk -lgcc
+LIBS:=$(LIBS) -nostdlib -nostartfiles -nodefaultlibs -lk -lgcc
 
-OBJS:=\
-kernel.o \
-loader.o \
+#OBJS := $(patsubst %.c,%.o,$(shell find . -name "*.c"))
+#OBJS += $(patsubst %.S,%.o,$(shell find . -name "*.S"))
+OBJS := $(patsubst %.S,%.o,$(shell find . -maxdepth 1 -name "*.S"))
+OBJS += $(patsubst %.c,%.o,$(shell find . -maxdepth 1 -name "*.c"))
+OBJS += $(patsubst %.c,%.o,$(shell find hw -name "*.c"))
+OBJS += $(patsubst %.S,%.o,$(shell find hw -name "*.S"))
+OBJS += $(patsubst %.c,%.o,$(shell find mem -name "*.c"))
+OBJS += $(patsubst %.S,%.o,$(shell find mem -name "*.S"))
+OBJS += $(patsubst %.c,%.o,$(shell find shell -name "*.c"))
+OBJS += $(patsubst %.S,%.o,$(shell find shell -name "*.S"))
+OBJS += $(patsubst %.c,%.o,$(shell find task -name "*.c"))
+OBJS += $(patsubst %.S,%.o,$(shell find task -name "*.S"))
 
 all: petrichor.elf
 

@@ -1,0 +1,18 @@
+#romimage: file=/usr/local/bochs/latest/BIOS-bochs-latest, address=0xf0000
+#vgaromimage: /usr/local/bochs/latest/VGABIOS-elpin-2.40
+
+display_library: x
+
+cpu: ips=5000000
+megs: 32
+
+floppya: 1_44=petrichor-floppy.img, status=inserted
+
+boot: a
+
+log: bochs.log
+
+#clock: sync=both
+speaker: enabled=1, mode=sound
+
+port_e9_hack: enabled=1
