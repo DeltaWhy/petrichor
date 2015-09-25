@@ -62,7 +62,7 @@ void kmain(uint32_t magic)
     print("initializing shell...\n");
     init_shell_builtins();
     beep(100, 100);
-    cprint("Hello OS\n", 2);
+    cprint("Petrichor OS\n", 2);
     update_cursor();
     shell();
 }
