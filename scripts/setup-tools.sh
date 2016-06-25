@@ -6,6 +6,7 @@ NASM_VERSION=2.11.08
 NASM=nasm-$NASM_VERSION
 BOCHS_VERSION=2.6.8
 BOCHS=bochs-$BOCHS_VERSION
+ISL=isl-0.13
 # dependencies for debian/ubuntu
 if grep 'Debian' /etc/issue || grep 'Ubuntu' /etc/issue; then
     sudo apt-get install build-essential gcc texinfo libgmp-dev libmpfr-dev libmpc-dev
@@ -20,16 +21,34 @@ echo "Fetching sources..."
 [ -f $GCC.tar.bz2 ] || wget ftp://ftp.gnu.org/gnu/gcc/$GCC/$GCC.tar.bz2
 [ -f $NASM.tar.bz2 ] || wget http://www.nasm.us/pub/nasm/releasebuilds/$NASM_VERSION/$NASM.tar.bz2
 [ -f $BOCHS.tar.gz ] || wget http://sourceforge.net/projects/bochs/files/bochs/$BOCHS_VERSION/$BOCHS.tar.gz
+[ -f $ISL.tar.gz ] || wget http://isl.gforge.inria.fr/isl-0.13.tar.gz
 #[ -d $BINUTILS ] || (tar xf $BINUTILS.tar.bz2 && sed -i -e 's/doc@cygnus.com/doc@@cygnus.com/' $BINUTILS/bfd/doc/bfd.texinfo)
 echo "Extracting sources..."
 [ -d $BINUTILS ] || tar xf $BINUTILS.tar.bz2
 [ -d $GCC ] || tar xf $GCC.tar.bz2
 [ -d $NASM ] || tar xf $NASM.tar.bz2
 [ -d $BOCHS ] || tar xf $BOCHS.tar.gz
+[ -d $ISL ] || tar xf $ISL.tar.gz
 
 export PREFIX=$PWD/cross
 export TARGET=i686-elf
 export PATH="$PREFIX/bin:$PATH"
+
+
+if [ ! -d build-isl ]; then
+    echo -e "\n#############"
+    echo "Building isl"
+    echo -e "##############\n"
+    mkdir -p build-isl
+    cd build-isl
+    ../$ISL/configure --target=$TARGET --prefix="$PREFIX"
+    make
+    echo -e "\n#############"
+    echo "Installing isl"
+    echo -e "##############\n"
+    make install
+    cd ..
+fi
 
 if [ ! -d build-binutils ]; then
     echo -e "\n#################"
@@ -53,7 +72,7 @@ if [ ! -d build-gcc ]; then
     echo -e "############\n"
     mkdir -p build-gcc
     cd build-gcc
-    ../$GCC/configure --target=$TARGET --prefix="$PREFIX" --disable-nls --enable-languages=c --without-headers
+    ../$GCC/configure --target=$TARGET --prefix="$PREFIX" --disable-nls --enable-languages=c --without-headers --with-isl=$PREFIX
     make all-gcc
     make all-target-libgcc
     echo -e "\n##############"
