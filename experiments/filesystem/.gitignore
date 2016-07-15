@@ -1,0 +1,7 @@
+*.d
+*.o
+*.a
+test/run
+tools/hello
+tools/tree
+tools/tarlist
