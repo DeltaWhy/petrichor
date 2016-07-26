@@ -27,7 +27,7 @@ void kmain(uint32_t magic)
         exit();
     }
 
-    kclear();
+    init_screen();
     char printbuf[256];
     snprintf(printbuf, 256, "kernel loaded at %p, ends at %p\n", kernel_start, kernel_end);
     print(printbuf);

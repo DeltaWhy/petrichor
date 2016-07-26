@@ -5,6 +5,22 @@
 
 volatile unsigned char *videoram = (unsigned char *)0xB8000;
 volatile unsigned char *cursor = (unsigned char *)0xB8000;
+unsigned char scrollback_buf[SCROLLBACK_LINES * SCREEN_WIDTH * 2];
+size_t scrollback_start = 0;
+size_t scrollback_end = 0;
+
+void init_screen()
+{
+    for (size_t i = 0; i < SCREEN_WIDTH * SCREEN_HEIGHT * 2; i++) {
+        scrollback_buf[i] = videoram[i];
+    }
+    for (size_t i = SCREEN_WIDTH * SCREEN_HEIGHT * 2; i < sizeof scrollback_buf; i++) {
+        scrollback_buf[i] = 0;
+    }
+
+    scrollback_end = SCREEN_WIDTH * (SCREEN_HEIGHT-1) * 2;
+    cursor = videoram + scrollback_end;
+}
 
 void update_cursor()
 {
@@ -19,14 +35,14 @@ void update_cursor()
 
 void kclear()
 {
-    cursor = videoram;
+    /*cursor = videoram;
     for (int i=0; i < SCREEN_WIDTH * SCREEN_HEIGHT; i++) {
         cursor[0] = ' ';
         cursor[1] = 0x07;
         cursor += 2;
     }
     cursor = videoram;
-    update_cursor();
+    update_cursor();*/
 }
 
 /*01 = darkblue 02 = green 03 = lightblue 04 = darkred 05 = darkpink 06 = orange 07 = lightgray 08 = darkgray 09 = purple 10 = babygreen 11 = lightred 12 = lightpink 13 = yellow 14 = white*/
@@ -48,19 +64,23 @@ void print(char *str)
 
 void kputc(char c, char col)
 {
+    scroll();
     int offset, column;
     switch (c) {
     case '\n':
         offset = cursor-videoram;
         column = offset % (SCREEN_WIDTH * 2);
         cursor += (SCREEN_WIDTH * 2) - column;
+        scrollback_end += (SCREEN_WIDTH * 2) - column;
         break;
     default:
         cursor[0] = c;
         cursor[1] = col;
         cursor += 2;
+        scrollback_buf[scrollback_end] = c;
+        scrollback_buf[scrollback_end+1] = col;
+        scrollback_end += 2;
     }
-    scroll();
     update_cursor();
 }
 
@@ -75,15 +95,27 @@ void screen_backspace()
 
 void scroll()
 {
-    int i;
+    // scroll the scrollback buffer
+    if (scrollback_end >= sizeof scrollback_buf) {
+        // scroll up one line
+        unsigned char *dst = scrollback_buf;
+        for (size_t i = SCREEN_WIDTH * 2; i < scrollback_end; i++) {
+            *dst = scrollback_buf[i];
+            dst++;
+        }
+        // clear last line
+        for (size_t i = scrollback_end - SCREEN_WIDTH * 2; i < scrollback_end; i++) {
+            scrollback_buf[i] = 0;
+        }
+        scrollback_end -= SCREEN_WIDTH * 2;
+        scrollback_start -= SCREEN_WIDTH * 2;
+    }
+
     int offset = cursor - videoram;
     if (offset >= 160*25) {       /* Are we off-screen ?          */
-        for (i = 0; i < 160*24; i++) { /* Scroll the screen up         */
-            videoram[i] = videoram[i+160];
-        }
-        for (i = 0; i < 80; i++) {     /* Empty the bottom row         */
-            videoram[(160*24)+(i*2)] = 0x20;
-            videoram[(160*24)+(i*2)+1] = 0x07;
+        scrollback_start += SCREEN_WIDTH * 2;
+        for (size_t i = 0; i < SCREEN_HEIGHT * SCREEN_WIDTH * 2; i++) {
+            videoram[i] = scrollback_buf[scrollback_start+i];
         }
         cursor -= 160;             /* We're on the bottom row      */
     }

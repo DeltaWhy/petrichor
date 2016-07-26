@@ -3,6 +3,8 @@
 
 #define SCREEN_WIDTH 80
 #define SCREEN_HEIGHT 26
+#define SCROLLBACK_LINES 100
+void init_screen();
 void update_cursor();
 void kclear();
 void kputc(char c, char col);
