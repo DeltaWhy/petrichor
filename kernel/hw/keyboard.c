@@ -1,4 +1,5 @@
 #include <string.h>
+#include "sprintf.h"
 #include "globals.h"
 #include "hw/keyboard.h"
 #include "hw/port.h"
@@ -58,6 +59,24 @@ void keyboard_irq_handler()
     // put scancode in buffer
     while (!(inportb(KBD_CONTROLLER_REG)&KBD_STATS_OUT_BUF));
     int scancode = inportb(0x60);
+
+    // 0xE0 is the first byte of a two-byte scancode
+    if (scancode == 0xE0) {
+        keyboard.state_extended = true;
+        goto out;
+    }
+    if (keyboard.state_extended) {
+        char printbuf[256];
+        snprintf(printbuf, 256, "ext keycode: %02x\n", scancode);
+        bochslog(printbuf);
+        keyboard.state_extended = false;
+        if (scancode & 0x80 && keyboard.held & (KBD_HELD_LSHIFT | KBD_HELD_RSHIFT)) {
+            if ((scancode & ~(0x80)) == SCAN_E_PGUP) screen_scroll_up();
+            else if ((scancode & ~(0x80)) == SCAN_E_PGDN) screen_scroll_down();
+        }
+        goto out;
+    }
+
     if (keyboard.mode & KBD_INFO_MODE_RAW) {
         cbuf_push(&key_buf, scancode);
     }
@@ -115,8 +134,10 @@ void keyboard_irq_handler()
         }
     }
 
+    int i;
+out:
     // reset the keyboard
-    int i = inportb(0x61);	//WEEP WEEP! MAGIC NUMBERS!
+    i = inportb(0x61);	//WEEP WEEP! MAGIC NUMBERS!
     outportb(0x61, i|0x80);
     outportb(0x61, i);
 }

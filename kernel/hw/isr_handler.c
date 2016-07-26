@@ -34,8 +34,9 @@ void isr_handler(registers_t regs)
         keyboard_irq_handler();
         send_eoi(1);
         break;
-
-
+    case 39:
+        // ignore this
+        break;
     default:
         printf("interrupt %d\n", regs.int_no);
         break;

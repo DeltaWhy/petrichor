@@ -26,6 +26,7 @@ enum KBD_HELD {
 typedef struct kbd_info {
     uint32_t mode;
     uint32_t held;
+    bool state_extended;
 } kbd_info;
 
 #define KBD_ENCODER_REG 0x60

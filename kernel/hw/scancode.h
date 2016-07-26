@@ -3,6 +3,8 @@
 #define SCAN_RSHIFT 0x36
 #define SCAN_CAPSLOCK 0x3a
 #define SCAN_BACKSPACE 0x0e
+#define SCAN_E_PGUP 0x49
+#define SCAN_E_PGDN 0x51
 
 static char scan_shift1[] = {
     /* 0x00 */ 0, 27, '!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '_', '+', '\b', '\t',

@@ -72,6 +72,7 @@ void kputc(char c, char col)
         column = offset % (SCREEN_WIDTH * 2);
         cursor += (SCREEN_WIDTH * 2) - column;
         scrollback_end += (SCREEN_WIDTH * 2) - column;
+        scroll();
         break;
     default:
         cursor[0] = c;
@@ -90,11 +91,13 @@ void screen_backspace()
     if (cursor == videoram) return;
     cursor -= 2;
     cursor[0] = ' ';
+    scrollback_end -= 2;
     update_cursor();
 }
 
 void scroll()
 {
+    screen_unscroll();
     // scroll the scrollback buffer
     if (scrollback_end >= sizeof scrollback_buf) {
         // scroll up one line
@@ -118,6 +121,41 @@ void scroll()
             videoram[i] = scrollback_buf[scrollback_start+i];
         }
         cursor -= 160;             /* We're on the bottom row      */
+    }
+}
+
+void screen_scroll_up(void) {
+    if (scrollback_start < SCROLL_AMOUNT * SCREEN_WIDTH * 2) {
+        scrollback_start = 0;
+    } else {
+        scrollback_start -= SCROLL_AMOUNT * SCREEN_WIDTH * 2;
+    }
+
+    for (size_t i = 0; i < SCREEN_HEIGHT * SCREEN_WIDTH * 2; i++) {
+        videoram[i] = scrollback_buf[scrollback_start+i];
+    }
+}
+
+void screen_scroll_down(void) {
+    scrollback_start += SCROLL_AMOUNT * SCREEN_WIDTH * 2;
+    while (scrollback_start + (SCREEN_HEIGHT-2) * SCREEN_WIDTH * 2 > scrollback_end) {
+        scrollback_start -= SCREEN_WIDTH * 2;
+    }
+
+    for (size_t i = 0; i < SCREEN_HEIGHT * SCREEN_WIDTH * 2; i++) {
+        videoram[i] = scrollback_buf[scrollback_start+i];
+    }
+}
+
+void screen_unscroll(void) {
+    if (scrollback_start + (SCREEN_HEIGHT-1) * SCREEN_WIDTH * 2 >= scrollback_end) return;
+
+    while (scrollback_start + (SCREEN_HEIGHT-1) * SCREEN_WIDTH * 2 < scrollback_end) {
+        scrollback_start += SCREEN_WIDTH * 2;
+    }
+
+    for (size_t i = 0; i < SCREEN_HEIGHT * SCREEN_WIDTH * 2; i++) {
+        videoram[i] = scrollback_buf[scrollback_start+i];
     }
 }
 
