@@ -6,6 +6,7 @@
 #include "hw/screen.h"
 #include "assert.h"
 #include "mboot.h"
+#include "task/task.h"
 
 #define PD_INDEX(addr) (((addr) >> 22) & 0x3ff)
 #define PT_INDEX(addr) (((addr) >> 12) & 0x3ff)
@@ -15,13 +16,12 @@
 extern const char kernel_start[];
 extern const char kernel_end[];
 
-static pde_t *pagedir;
 void init_vmm()
 {
     /* page dirs and page tables have to be page aligned,
      * and they are conveniently also 4KB sized. */
-    pagedir = (pde_t *)pmm_alloc_frames(1);
-    memset(pagedir, 0, 4096);
+    kernel_task->pagedir = (pde_t *)pmm_alloc_frames(1);
+    memset(kernel_task->pagedir, 0, 4096);
 
     if ((paddr_t)kernel_start > 0x1fffff || (paddr_t)kernel_end > 0x1fffff) panic("kernel is too big or too high in RAM");
     vmm_identity_map((paddr_t)0, 512, VMM_PTE_FLAG_PRESENT | VMM_PTE_FLAG_WRITABLE); // identity map the first two MB of RAM
@@ -43,7 +43,7 @@ void init_vmm()
                          "mov %%cr0, %%eax;"
                          "or $0x80000000, %%eax;"
                          "mov %%eax, %%cr0;"
-                         : : "b"(pagedir) : "%eax");
+                         : : "b"(kernel_task->pagedir) : "%eax");
 }
 
 void vmm_test()
@@ -60,28 +60,28 @@ void vmm_test()
 
 void vmm_init_pagetable(vaddr_t vaddr)
 {
-    if (pagedir[PD_INDEX(vaddr)] & VMM_PTE_FLAG_PRESENT) {
+    if (current->pagedir[PD_INDEX(vaddr)] & VMM_PTE_FLAG_PRESENT) {
         char err[1024];
         sprintf(err, "tried to initialize already initialized pagetable at %p", vaddr);
         panic(err);
     } else {
         paddr_t pt = pmm_alloc_frames(1);
         memset((void *)pt, 0, 4096);
-        pagedir[PD_INDEX(vaddr)] = MAKE_PDE(pt, VMM_PTE_FLAG_PRESENT | VMM_PTE_FLAG_WRITABLE |
+        current->pagedir[PD_INDEX(vaddr)] = MAKE_PDE(pt, VMM_PTE_FLAG_PRESENT | VMM_PTE_FLAG_WRITABLE |
                                             VMM_PTE_FLAG_CACHE);
     }
 }
 
 void vmm_free_pagetable(vaddr_t vaddr)
 {
-    if (!(pagedir[PD_INDEX(vaddr)] & VMM_PTE_FLAG_PRESENT)) {
+    if (!(current->pagedir[PD_INDEX(vaddr)] & VMM_PTE_FLAG_PRESENT)) {
         char err[1024];
         sprintf(err, "tried to free nonexistent pagetable at %p", vaddr);
         panic(err);
     } else {
-        paddr_t pt = pagedir[PD_INDEX(vaddr)] & VMM_PTE_MASK_FRAME;
+        paddr_t pt = current->pagedir[PD_INDEX(vaddr)] & VMM_PTE_MASK_FRAME;
         pmm_free_frames(pt, 1);
-        pagedir[PD_INDEX(vaddr)] &= ~(VMM_PTE_FLAG_PRESENT);
+        current->pagedir[PD_INDEX(vaddr)] &= ~(VMM_PTE_FLAG_PRESENT);
     }
 }
 
@@ -93,11 +93,11 @@ void vmm_alloc_page(vaddr_t vaddr, int flags)
 
 void vmm_map_page(vaddr_t vaddr, paddr_t paddr, int flags)
 {
-    if (!(pagedir[PD_INDEX(vaddr)] & VMM_PTE_FLAG_PRESENT)) {
+    if (!(current->pagedir[PD_INDEX(vaddr)] & VMM_PTE_FLAG_PRESENT)) {
         vmm_init_pagetable(vaddr);
     }
     //TODO - don't assume the pagetable is identity mapped
-    pte_t *pt = (pte_t *)(pagedir[PD_INDEX(vaddr)] & VMM_PTE_MASK_FRAME);
+    pte_t *pt = (pte_t *)(current->pagedir[PD_INDEX(vaddr)] & VMM_PTE_MASK_FRAME);
     if (pt[PT_INDEX(vaddr)] & VMM_PTE_FLAG_PRESENT) {
         char err[1024];
         sprintf(err, "tried to map already existing page at %p", vaddr);
@@ -109,10 +109,10 @@ void vmm_map_page(vaddr_t vaddr, paddr_t paddr, int flags)
 
 int vmm_get_flags(vaddr_t vaddr)
 {
-    if (!(pagedir[PD_INDEX(vaddr)] & VMM_PTE_FLAG_PRESENT)) {
+    if (!(current->pagedir[PD_INDEX(vaddr)] & VMM_PTE_FLAG_PRESENT)) {
         return 0;
     }
-    pte_t *pt = (pte_t *)(pagedir[PD_INDEX(vaddr)] & VMM_PTE_MASK_FRAME);
+    pte_t *pt = (pte_t *)(current->pagedir[PD_INDEX(vaddr)] & VMM_PTE_MASK_FRAME);
     if (!(pt[PT_INDEX(vaddr)] & VMM_PTE_FLAG_PRESENT)) {
         return 0;
     }
@@ -121,12 +121,12 @@ int vmm_get_flags(vaddr_t vaddr)
 
 void vmm_set_flags(vaddr_t vaddr, int flags)
 {
-    if (!(pagedir[PD_INDEX(vaddr)] & VMM_PTE_FLAG_PRESENT)) {
+    if (!(current->pagedir[PD_INDEX(vaddr)] & VMM_PTE_FLAG_PRESENT)) {
         char err[1024];
         sprintf(err, "tried to set page flags in nonexistent pagetable at %p", vaddr);
         panic(err);
     }
-    pte_t *pt = (pte_t *)(pagedir[PD_INDEX(vaddr)] & VMM_PTE_MASK_FRAME);
+    pte_t *pt = (pte_t *)(current->pagedir[PD_INDEX(vaddr)] & VMM_PTE_MASK_FRAME);
     if (!(pt[PT_INDEX(vaddr)] & VMM_PTE_FLAG_PRESENT)) {
         char err[1024];
         sprintf(err, "tried to set flags on invalid page at %p", vaddr);
@@ -139,12 +139,12 @@ void vmm_set_flags(vaddr_t vaddr, int flags)
 
 void vmm_unset_flags(vaddr_t vaddr, int flags)
 {
-    if (!(pagedir[PD_INDEX(vaddr)] & VMM_PTE_FLAG_PRESENT)) {
+    if (!(current->pagedir[PD_INDEX(vaddr)] & VMM_PTE_FLAG_PRESENT)) {
         char err[1024];
         sprintf(err, "tried to set page flags in nonexistent pagetable at %p", vaddr);
         panic(err);
     }
-    pte_t *pt = (pte_t *)(pagedir[PD_INDEX(vaddr)] & VMM_PTE_MASK_FRAME);
+    pte_t *pt = (pte_t *)(current->pagedir[PD_INDEX(vaddr)] & VMM_PTE_MASK_FRAME);
     if (!(pt[PT_INDEX(vaddr)] & VMM_PTE_FLAG_PRESENT)) {
         char err[1024];
         sprintf(err, "tried to set flags on invalid page at %p", vaddr);
@@ -157,12 +157,12 @@ void vmm_unset_flags(vaddr_t vaddr, int flags)
 
 void vmm_unmap_page(vaddr_t vaddr)
 {
-    if (!(pagedir[PD_INDEX(vaddr)] & VMM_PTE_FLAG_PRESENT)) {
+    if (!(current->pagedir[PD_INDEX(vaddr)] & VMM_PTE_FLAG_PRESENT)) {
         char err[1024];
         sprintf(err, "tried to free page in nonexistent pagetable at %p", vaddr);
         panic(err);
     }
-    pte_t *pt = (pte_t *)(pagedir[PD_INDEX(vaddr)] & VMM_PTE_MASK_FRAME);
+    pte_t *pt = (pte_t *)(current->pagedir[PD_INDEX(vaddr)] & VMM_PTE_MASK_FRAME);
     if (!(pt[PT_INDEX(vaddr)] & VMM_PTE_FLAG_PRESENT)) {
         char err[1024];
         sprintf(err, "tried to free already free page at %p", vaddr);
@@ -190,8 +190,8 @@ void vmm_identity_map(paddr_t addr, int n, int flags)
 
 paddr_t vmm_lookup(vaddr_t addr)
 {
-    if (!(pagedir[PD_INDEX(addr)] & VMM_PTE_FLAG_PRESENT)) return (paddr_t)0;
-    pte_t *pt = (pte_t *)(pagedir[PD_INDEX(addr)] & VMM_PTE_MASK_FRAME);
+    if (!(current->pagedir[PD_INDEX(addr)] & VMM_PTE_FLAG_PRESENT)) return (paddr_t)0;
+    pte_t *pt = (pte_t *)(current->pagedir[PD_INDEX(addr)] & VMM_PTE_MASK_FRAME);
     if (!(pt[PT_INDEX(addr)] & VMM_PTE_FLAG_PRESENT)) return (paddr_t)0;
     paddr_t frame = pt[PT_INDEX(addr)] & VMM_PTE_MASK_FRAME;
     return frame | (addr & 0xfff);
